@@ -1,69 +1,140 @@
 <?php
 
-// IMAP server configuration
-$imapPath = '{imap.gmail.com:993/imap/ssl}INBOX';
-$username = 'maxrai788@gmail.com';
-$password = 'rqcuswodywcazihj';
+class ConnectionManager
+{
+    protected $username;
+    protected $password;
+    protected $host;
+    protected $database;
+    protected $user;
+    protected $dbPassword;
+    protected $imapPath;
 
-// Connect to the IMAP server
-$inbox = imap_open($imapPath, $username, $password) or die('Failed to connect to Gmail');
-
-// Check if the connection was successful
-if ($inbox) {
-    // Get today's date
-    $today = date('d-M-Y');
-
-    // Search for unread messages received today
-    $emails = imap_search($inbox, 'UNSEEN SINCE "' . $today . '"');
-
-    // Check if there are any unread messages
-    if ($emails) {
-
-        // Loop through each unread message
-        foreach ($emails as $email_number) {
-            // Fetch the message structure
-            $message = imap_fetchbody($inbox, $email_number, '1'); 
-            $subMessage = substr($message, 0, 200); 
-            $finalMessage = trim(quoted_printable_decode($subMessage)); 
-            $finalMessage = strip_tags($finalMessage);
-            
-            // Output the message content
-            echo "Message content:";
-            echo $finalMessage ;
-            // Mark the message as read (optional)
-            imap_setflag_full($inbox, $email_number, "\\Seen");
-        }
-    } else {
-        echo "No unread messages found in your inbox";
+    public function __construct($username, $password, $host, $database, $user, $dbPassword, $imapPath)
+    {
+        $this->username = $username;
+        $this->password = $password;
+        $this->host = $host;
+        $this->database = $database;
+        $this->user = $user;
+        $this->dbPassword = $dbPassword;
+        $this->imapPath = $imapPath;
     }
 
-    // Close the connection to the IMAP server
-    imap_close($inbox);
-} else {
-    echo "Failed to connect to Gmail";
+    protected function connectDatabase()
+    {
+        // Connect to the database
+        $mysqli = new mysqli($this->host, $this->user, $this->dbPassword, $this->database);
+
+        // Check connection
+        if ($mysqli->connect_errno) {
+            throw new Exception("Failed to connect to MySQL: " . $mysqli->connect_error);
+        }
+
+        return $mysqli;
+    }
+    protected function executeQuery($sql, $params, $types = "")
+    {
+        try {
+            // Connect to the database
+            $mysqli = $this->connectDatabase();
+
+            // Prepare the SQL statement
+            $stmt = $mysqli->prepare($sql);
+
+            // Bind parameters if types and parameters are provided
+            if (!empty($types) && !empty($params)) {
+                $stmt->bind_param($types, ...$params);
+            }
+
+            // Execute the statement
+            $stmt->execute();
+            return $stmt;
+        } catch (Exception $e) {
+            echo 'Error: ' . $e->getMessage() . "\n";
+        }
+    }
+    protected function checkIfRowsExist($stmt)
+    {
+        return $stmt->affected_rows > 0;
+    }
+    protected function connectIMAP()
+    {
+        // Connect to the IMAP server
+        $inbox = imap_open($this->imapPath, $this->username, $this->password);
+        if (!$inbox) {
+            throw new Exception('Failed to connect to Gmail');
+        }
+        return $inbox;
+    }
+
+    protected function disconnectIMAP($inbox)
+    {
+        // Close the connection to the IMAP server
+        if ($inbox) {
+            imap_close($inbox);
+        }
+    }
+}
+
+class EmailHandler extends ConnectionManager
+{
+    public function readUnreadMessages($sinceDate, $maxLength = 200)
+    {
+        try {
+            // Connect to the IMAP server
+            $inbox = $this->connectIMAP();
+
+            // Search for unread messages received since the specified date
+            $emails = imap_search($inbox, 'UNSEEN SINCE "' . $sinceDate . '"');
+            if (!$emails) {
+                echo "No unread messages found in your inbox\n";
+                return;
+            }
+            $finalMessage = [];
+            // Loop through each unread message, fetch its content, and mark it as read
+            foreach ($emails as $emailNumber) {
+                $message = imap_fetchbody($inbox, $emailNumber, '1');
+                $subMessage = substr($message, 0, $maxLength);
+                $finalMessage = trim(quoted_printable_decode($subMessage));
+                $finalMessage = strip_tags($finalMessage);
+                $this->saveMessageToDatabase($finalMessage);
+            }
+        } catch (Exception $e) {
+            echo 'Error: ' . $e->getMessage() . "\n";
+        } finally {
+            // Disconnect from the IMAP server
+            $this->disconnectIMAP($inbox);
+        }
+    }
+
+    public function saveMessageToDatabase($message)
+    {
+        try {
+            $sql = "INSERT INTO pick_bin_snapshot_records (name, created_at, updated_at, created_date) VALUES (?, NOW(), NOW(), NOW())";
+            // Connect to the database
+            $params = [$message];
+            $types = "s";
+            $stmt = $this->executeQuery($sql, $params, $types);
+            if ($this->checkIfRowsExist($stmt)) {
+                echo "Message saved to database successfully\n";
+            } else {
+                echo "Failed to save message to database\n";
+            }
+        } catch (Exception $e) {
+            echo 'Error: ' . $e->getMessage() . "\n";
+        }
+    }
 }
 
 
-
-// // Function to extract plain text from email message
-// function getPlainTextFromMessage($inbox, $email_number, $structure) {
-//     $message = "";
-    
-//     if (isset($structure->parts) && count($structure->parts) > 0) {
-//         foreach ($structure->parts as $part_number => $part) {
-//             // Check if the part is text/plain
-//             if ($part->subtype == 'PLAIN') {
-//                 // Fetch the plain text part
-//                 $message = imap_fetchbody($inbox, $email_number, $part_number + 1);
-//                 break;
-//             } elseif ($part->subtype == 'HTML') {
-//                 // Fetch the HTML part and remove HTML tags
-//                 $htmlMessage = imap_fetchbody($inbox, $email_number, $part_number + 1);
-//                 $message = strip_tags($htmlMessage);
-//             }
-//         }
-//     }
-    
-//     return $message;
-// }
-?>
+$username = 'maxrai788@gmail.com';
+$password = 'rqcuswodywcazihj';
+$host = 'localhost';
+$database = 'tdm';
+$user = 'root';
+$dbPassword = '';
+$imapPath = '{imap.gmail.com:993/imap/ssl}INBOX';
+$sinceDate = date('d-M-Y');
+$emailHandler = new EmailHandler($username, $password, $host, $database, $user, $dbPassword, $imapPath);
+$emailHandler->readUnreadMessages($sinceDate);

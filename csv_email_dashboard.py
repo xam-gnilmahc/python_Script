@@ -150,7 +150,7 @@ class TaskExporter:
             msg['To'] = ", ".join(self.recipients)
             msg['Subject'] = "Tasks Data"
 
-            body = "Please find attached the tasks data CSV file. [https://realpython.com/python-send-email/]"
+            body = "Please find attached the tasks data CSV file. [https://realpython.com/python-send-email/https://docs.scrapy.org/en/latest/_modules/scrapy/mail.html]"
             msg.attach(MIMEText(body, 'plain'))
 
             attachment = open(file_path, "rb")
