@@ -5,8 +5,8 @@ import datetime
 # IMAP server configuration
 IMAP_SERVER = 'imap.gmail.com'
 IMAP_PORT = 993
-EMAIL = 'maxrai788@gmail.com'
-PASSWORD = 'rqcuswodywcazihj'
+EMAIL = ''
+PASSWORD = ''
 
 # Connect to the IMAP server
 mail = imaplib.IMAP4_SSL(IMAP_SERVER, IMAP_PORT)
