@@ -52,3 +52,25 @@ mail.close()
 
 # Logout from the server
 mail.logout()
+
+def save_csv_record_in_db(self, csv_file_path):
+    try:
+        # Unpack the elements of csv_file_path
+        name, created_at, updated_at, created_date = csv_file_path
+
+        # Prepare the SQL query
+        insert_query = """
+            INSERT INTO pick_bin_snapshot_records (name, created_at, updated_at, created_date)
+            VALUES (%s, %s, %s, %s)
+        """
+
+        # Execute the SQL query with individual parameters
+        self.execute_sql(insert_query, params=(name, created_at, updated_at, created_date), commit=True)
+        return True
+           
+    except mysql.connector.Error as e:
+        print("Error saving CSV record to database:", e)
+        return False
+    except Exception as e:
+        print("Error:", e)
+        return False

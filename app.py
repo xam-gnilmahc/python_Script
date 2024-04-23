@@ -17,7 +17,7 @@ class TaskExporter:
         self.host = "localhost"
         self.database = "tdm"
         self.user = "root"
-        self.password = ""
+        self.password = "123"
         self.connection = None
         self.sender_email = "maxrai788@gmail.com"
         self.sender_password = "rqcuswodywcazihj"

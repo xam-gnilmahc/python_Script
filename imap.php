@@ -1,4 +1,7 @@
 <?php
+use PHPMailer\PHPMailer\PHPMailer;
+use PHPMailer\PHPMailer\Exception;
+require 'vendor/autoload.php';
 
 class ConnectionManager
 {
@@ -10,7 +13,7 @@ class ConnectionManager
     protected $dbPassword;
     protected $imapPath;
 
-    public function __construct($username, $password, $host, $database, $user, $dbPassword, $imapPath)
+    public function __construct($username, $password, $host, $database, $user, $dbPassword, $imapPath, $recipients)
     {
         $this->username = $username;
         $this->password = $password;
@@ -19,6 +22,7 @@ class ConnectionManager
         $this->user = $user;
         $this->dbPassword = $dbPassword;
         $this->imapPath = $imapPath;
+        $this->recipients = $recipients;
     }
 
     protected function connectDatabase()
@@ -75,11 +79,32 @@ class ConnectionManager
             imap_close($inbox);
         }
     }
+    protected function connectSMTP()
+{
+    $mail = new PHPMailer(true);
+    try {
+        //Server settings
+        $mail->SMTPDebug = 0;                      // Enable verbose debug output
+        $mail->isSMTP();                                            // Send using SMTP
+        $mail->Host       = 'smtp.gmail.com';                     // Set the SMTP server to send through
+        $mail->SMTPAuth   = true;                                   // Enable SMTP authentication
+        $mail->Username   = $this->username;                         // SMTP username
+        $mail->Password   = $this->password;                         // SMTP password
+        $mail->SMTPSecure = 'tls';                                  // Enable TLS encryption; `PHPMailer::ENCRYPTION_SMTPS` encouraged
+        $mail->Port       = 587;                                    // TCP port to connect to, use 465 for `PHPMailer::ENCRYPTION_SMTPS` above
+
+        return $mail;
+    } catch (Exception $e) {
+        echo "SMTP connection failed. Error: {$e->getMessage()}";
+        return null;
+    }
+}
 }
 
 class EmailHandler extends ConnectionManager
 {
-    public function readUnreadMessages($sinceDate, $maxLength = 200)
+
+    public function readUnreadMessages($sinceDate)
     {
         try {
             // Connect to the IMAP server
@@ -91,15 +116,30 @@ class EmailHandler extends ConnectionManager
                 echo "No unread messages found in your inbox\n";
                 return;
             }
-            $finalMessage = [];
+            $messagesToSave = []; // Initialize an array to store all message bodies
+
             // Loop through each unread message, fetch its content, and mark it as read
             foreach ($emails as $emailNumber) {
                 $message = imap_fetchbody($inbox, $emailNumber, '1');
-                $subMessage = substr($message, 0, $maxLength);
-                $finalMessage = trim(quoted_printable_decode($subMessage));
-                $finalMessage = strip_tags($finalMessage);
-                $this->saveMessageToDatabase($finalMessage);
+                // Regular expression pattern to match unwanted lines
+                // Regular expression pattern to match unwanted lines
+
+                // Regular expression pattern to remove "On" lines
+                //$pattern_on = '/(?:^|\n)On\s+\w{3},\s+\w{3}\s+\d{1,2},\s+\d{4}\s+at\s+\d{1,2}:\d{2}=E2=80=AFPM.*?(?=(\n\n|\z))|^-*\s+Forwarded\s+message\s+-*.*?(?=From:|$)/s';
+                // $pattern_on = '/(?:^|\n)On\s+\w{3},\s+\w{3}\s+\d{1,2},\s+\d{4}\s+at\s+\d{1,2}:\d{2}=E2=80=AFPM.*?(?=(\n\n|\z))|^-*\s+Forwarded\s+message\s+-*.*?(?=From:|$)/s';
+                $pattern_on = '/^(?:On\s+\w{3},\s+\w{3}\s+\d{1,2},\s+\d{4}\s+at\s+\d{1,2}:\d{2}=E2=80=AFPM.*|-*\s+Forwarded\s+message\s+-*|From:|To:|Date:|Subject:).*?(?=\n|$)/sm';
+
+                // $pattern_on = '/(?:^|\n)On\s+\w{3},\s+\w{3}\s+\d{1,2},\s+\d{4}\s+at\s+\d{1,2}:\d{2}=E2=80=AFPM.*?(?=(\n|$))|^-*\s+Forwarded\s+message\s+-*.*?(?=(\n|$))/s';
+
+
+                $mainContent = preg_replace($pattern_on, '', $message);
+                $mainContent = trim($mainContent);
+                $messagesToSave[] = $mainContent;
+                // Print the main content
+                // echo $mainContent . "\n";
             }
+            $this->saveMessageToDatabase($messagesToSave);
+            $this->exportMessagesToCSV($messagesToSave);
         } catch (Exception $e) {
             echo 'Error: ' . $e->getMessage() . "\n";
         } finally {
@@ -108,23 +148,85 @@ class EmailHandler extends ConnectionManager
         }
     }
 
-    public function saveMessageToDatabase($message)
+
+    public function saveMessageToDatabase($messages)
     {
         try {
-            $sql = "INSERT INTO pick_bin_snapshot_records (name, created_at, updated_at, created_date) VALUES (?, NOW(), NOW(), NOW())";
-            // Connect to the database
-            $params = [$message];
-            $types = "s";
+            $sql = "INSERT INTO pick_bin_snapshot_records (name, created_at, updated_at, created_date) VALUES ";
+            $placeholders = implode(', ', array_fill(0, count($messages), "(?, NOW(), NOW(), NOW())"));
+            $sql .= $placeholders;
+            $params = [];
+
+            foreach ($messages as $message) {
+
+                // Add the message body to the parameters
+                $params[] = $message;
+            }
+
+            // Generate the types string for binding parameters
+            $types = str_repeat('s', count($params));
+
+            // Execute the query
             $stmt = $this->executeQuery($sql, $params, $types);
             if ($this->checkIfRowsExist($stmt)) {
-                echo "Message saved to database successfully\n";
+                echo "Messages saved to database successfully\n";
             } else {
-                echo "Failed to save message to database\n";
+                echo "Failed to save messages to database\n";
             }
         } catch (Exception $e) {
             echo 'Error: ' . $e->getMessage() . "\n";
         }
     }
+
+    public function exportMessagesToCSV($messages)
+    {
+        try {
+            // Generate CSV file path
+            $csvFilePath = 'D:/task/tasks_' . date('YmdHis') . '.csv';
+            // Open CSV file for writing
+            $csvFile = fopen($csvFilePath, 'w');
+
+            // Write CSV header
+            fputcsv($csvFile, ['Message']);
+
+            foreach ($messages as $message) {
+                // Add the message to the CSV file
+                fputcsv($csvFile, [$message]);
+            }
+
+            // Close CSV file
+            fclose($csvFile);
+            $this->sendEmailWithAttachment($csvFilePath, $this->recipients);
+
+
+            echo "Messages exported to CSV file successfully: $csvFilePath\n";
+        } catch (Exception $e) {
+            echo 'Error: ' . $e->getMessage() . "\n";
+        }
+    }
+    public function sendEmailWithAttachment($attachmentPath, $recipients)
+    {
+        try {
+            $mail=$this->connectSMTP();
+            //Recipients
+            foreach ($recipients as $recipient) {
+                $mail->addAddress($recipient);
+            }
+            //Attachments
+            $mail->addAttachment($attachmentPath);         // Add attachments
+            // Content
+            $mail->isHTML(true);                                  // Set email format to HTML
+            $mail->Subject = "inbox csv file";
+            $mail->Body    = "inbox csvf file";
+    
+            $mail->send();
+            echo 'Email has been sent successfully';
+        } catch (Exception $e) {
+            echo "Email could not be sent. Mailer Error: {$mail->ErrorInfo}";
+        }
+    }
+
+
 }
 
 
@@ -133,8 +235,10 @@ $password = 'rqcuswodywcazihj';
 $host = 'localhost';
 $database = 'tdm';
 $user = 'root';
-$dbPassword = '';
+$dbPassword = '123';
 $imapPath = '{imap.gmail.com:993/imap/ssl}INBOX';
 $sinceDate = date('d-M-Y');
-$emailHandler = new EmailHandler($username, $password, $host, $database, $user, $dbPassword, $imapPath);
+$recipients = ["maxrai788@gmail.com", "max.c@shikhartech.com"];
+
+$emailHandler = new EmailHandler($username, $password, $host, $database, $user, $dbPassword, $imapPath, $recipients);
 $emailHandler->readUnreadMessages($sinceDate);

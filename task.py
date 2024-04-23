@@ -74,3 +74,28 @@ if tasks_data:
     task_exporter.export_to_csv(tasks_data, csv_file_path)
 else:
     print("No tasks found.")
+
+
+def execute_sql(self, query, commit=True):
+    try:
+        if not self.connection:
+            if not self.connect_to_database():
+                return None
+
+        cursor = self.connection.cursor(dictionary=True)
+
+        cursor.execute(query)
+        data = cursor.fetchall() if query.lower().startswith("select") else None
+
+        if commit:
+            self.connection.commit()
+
+        cursor.close()
+
+        return data
+
+    except mysql.connector.Error as e:
+        print("Error executing SQL query:", e)
+        return None
+    
+    
