@@ -19,8 +19,8 @@ class TaskExporter:
         self.user = "root"
         self.password = "123"
         self.connection = None
-        self.sender_email = "maxrai788@gmail.com"
-        self.sender_password = "rqcuswodywcazihj"
+        self.sender_email = ""
+        self.sender_password = ""
         self.recipients = ["maxrai788@gmail.com", "max.c@shikhartech.com"]
 
     def connect_to_database(self):
