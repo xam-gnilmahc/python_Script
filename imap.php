@@ -131,7 +131,7 @@ class EmailHandler extends ConnectionManager
 
                 // $pattern_on = '/(?:^|\n)On\s+\w{3},\s+\w{3}\s+\d{1,2},\s+\d{4}\s+at\s+\d{1,2}:\d{2}=E2=80=AFPM.*?(?=(\n|$))|^-*\s+Forwarded\s+message\s+-*.*?(?=(\n|$))/s';
 
-
+                
                 $mainContent = preg_replace($pattern_on, '', $message);
                 $mainContent = trim($mainContent);
                 $messagesToSave[] = $mainContent;
@@ -216,7 +216,6 @@ class EmailHandler extends ConnectionManager
             $mail->addAttachment($attachmentPath);         // Add attachments
             // Content
             $mail->isHTML(true);                                  // Set email format to HTML
-            $mail->Subject = "inbox csv file";
             $mail->Body    = "inbox csvf file";
     
             $mail->send();
