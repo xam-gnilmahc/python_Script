@@ -17,7 +17,7 @@ class TaskExporter:
         self.host = "localhost"
         self.database = "tdm"
         self.user = "root"
-        self.password = ""
+        self.password = "123"
         self.connection = None
         self.sender_email = "maxrai788@gmail.com"
         self.sender_password = "rqcuswodywcazihj"
@@ -120,7 +120,7 @@ class TaskExporter:
                 VALUES ( %s, %s, %s, %s)
             """
 
-            cursor.executemany(insert_query, csv_file_path)
+            cursor.execute(insert_query, csv_file_path)
             self.connection.commit()
             cursor.close()
             return True
@@ -255,7 +255,7 @@ class TaskExporter:
                 return False
 
             # Save CSV record in database
-            csv_log_data = [(csv_file_path, datetime.now(), datetime.now(), datetime.now().date())]
+            csv_log_data = (csv_file_path, datetime.now(), datetime.now(), datetime.now().date())
             if not self.save_csv_record_in_db(csv_log_data):
                 print("Failed to save CSV record in database.")
                 return False
