@@ -1,101 +1,80 @@
-import mysql.connector
+import requests
+from bs4 import BeautifulSoup
 import csv
+from datetime import datetime, timedelta
 
-class TaskExporter:
-    def __init__(self):
-        self.host = "localhost"
-        self.database = "tdm"
-        self.user = "root"
-        self.password = ""
-        self.connection = None
+def scrape_uci_datasets():
+    base_url = "https://archive.ics.uci.edu/datasets"
+
+    # CSV headers
+    headers = [
+        "Dataset Name", "Donated Date", "Description",
+        "Dataset Characteristics", "Subject Area", "Associated Tasks",
+        "Feature Type", "Instances", "Features"
+    ]
+
+    data = []
+
+    def scrape_dataset_details(dataset_url):
+        response = requests.get(dataset_url)
+        soup = BeautifulSoup(response.text, 'html.parser')
+
+        dataset_name = soup.find('h1', class_='text-3xl font-semibold text-primary-content')
+        dataset_name = dataset_name.text.strip() if dataset_name else "N/A"
+
+        donated_date = soup.find('h2', class_='text-sm text-primary-content')
+        donated_date = donated_date.text.strip().replace('Donated on ', '') if donated_date else "N/A"
+
+        description = soup.find('p', class_='svelte-1xc1tf7')
+        description = description.text.strip() if description else "N/A"
+
+        details = soup.find_all('div', class_='col-span-4')
+
+        dataset_characteristics = details[0].find('p').text.strip() if len(details) > 0 else "N/A"
+        subject_area = details[1].find('p').text.strip() if len(details) > 1 else "N/A"
+        associated_tasks = details[2].find('p').text.strip() if len(details) > 2 else "N/A"
+        feature_type = details[3].find('p').text.strip() if len(details) > 3 else "N/A"
+        instances = details[4].find('p').text.strip() if len(details) > 4 else "N/A"
+        features = details[5].find('p').text.strip() if len(details) > 5 else "N/A"
+
+        return [
+            dataset_name, donated_date, description, dataset_characteristics,
+            subject_area, associated_tasks, feature_type, instances, features
+        ]
         
-    def connect_to_database(self):
-        try:
-            self.connection = mysql.connector.connect(
-                host=self.host,
-                database=self.database,
-                user=self.user,
-                password=self.password
-            )
-            return True
-        except mysql.connector.Error as e:
-            print("Error connecting to MySQL:", e)
-            return False
+    def scrape_datasets(page_url):
+        response = requests.get(page_url)
+        soup = BeautifulSoup(response.text, 'html.parser')
 
-    def get_tasks_by_user_id(self, user_id):
-        try:
-            if not self.connection:
-                if not self.connect_to_database():
-                    return None
+        dataset_list = soup.find_all('a', class_='link-hover link text-xl font-semibold')
 
-            cursor = self.connection.cursor(dictionary=True)
-            cursor.execute(f'''SELECT tasks.*, 
-                (SELECT name FROM users WHERE users.id = tasks.createdBy) AS createdBy,
-                (SELECT name FROM users WHERE users.id = tasks.assignedBy LIMIT 1) AS assignedBy,
-                (SELECT name FROM users WHERE users.id = tasks.completedBy LIMIT 1) AS completedBy,
-                (SELECT GROUP_CONCAT(type) FROM tasktypes JOIN task_tasktypes_pivot ON tasktypes.id = task_tasktypes_pivot.tasktypes_id WHERE task_tasktypes_pivot.task_id = tasks.id) as types,
-                task_collaborators.id AS collaborator_id,
-                task_collaborators.collaborator,
-                task_collaborators.taskId AS collaborator_taskId,
-                task_collaborators.flag AS collaborator_flag,
-                (SELECT name FROM users WHERE task_collaborators.collaborator = users.id) AS collaborator_name
-                FROM tasks
-                LEFT JOIN task_collaborators ON tasks.id = task_collaborators.taskId
-                WHERE task_collaborators.flag = "0"
-                GROUP BY taskId
-                ''')
+        if not dataset_list:
+            print("No dataset links found")
+            return
 
-            tasks = cursor.fetchall()
-            cursor.close()
+        for dataset in dataset_list:
+            dataset_link = "https://archive.ics.uci.edu" + dataset['href']
+            print(f"Scraping details for {dataset.text.strip()}...")
+            dataset_details = scrape_dataset_details(dataset_link)
+            data.append(dataset_details)
 
-            return tasks
+    page_urls = [
+        "https://archive.ics.uci.edu/datasets?skip=0&take=10&sort=desc&orderBy=NumHits&search=",
+        "https://archive.ics.uci.edu/datasets?skip=10&take=20&sort=desc&orderBy=NumHits&search=",
+        "https://archive.ics.uci.edu/datasets?skip=20&take=30&sort=desc&orderBy=NumHits&search="
+    ]
 
-        except mysql.connector.Error as e:
-            print("Error retrieving tasks data:", e)
-            return None
-
-    def export_to_csv(self, tasks, file_path):
-        if tasks:
-            fieldnames = tasks[0].keys()
-            with open(file_path, 'w', newline='') as csvfile:
-                writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-                writer.writeheader()
-                writer.writerows(tasks)
-            print("CSV file created successfully at:", file_path)
-        else:
-            print("No tasks found.")
-
-# Example usage:
-task_exporter = TaskExporter()
-user_id = 1
-tasks_data = task_exporter.get_tasks_by_user_id(user_id)
-if tasks_data:
-    csv_file_path = 'D:/tasks.csv'
-    task_exporter.export_to_csv(tasks_data, csv_file_path)
-else:
-    print("No tasks found.")
-
-
-def execute_sql(self, query, commit=True):
-    try:
-        if not self.connection:
-            if not self.connect_to_database():
-                return None
-
-        cursor = self.connection.cursor(dictionary=True)
-
-        cursor.execute(query)
-        data = cursor.fetchall() if query.lower().startswith("select") else None
-
-        if commit:
-            self.connection.commit()
-
-        cursor.close()
-
-        return data
-
-    except mysql.connector.Error as e:
-        print("Error executing SQL query:", e)
-        return None
+    for page_url in page_urls:
+        print(f"Scraping page: {page_url}")
+        scrape_datasets(page_url)
     
-    
+    csv_file_path = f'D:/task/scrapping_{datetime.now().strftime("%Y%m%d%H%M%S")}.csv'
+    with open( csv_file_path, 'w', newline='', encoding='utf-8') as file:
+        writer = csv.writer(file)
+        writer.writerow(headers)
+        writer.writerows(data)
+
+    print("Data scraping and saving to CSV complete!")
+
+
+scrape_uci_datasets()

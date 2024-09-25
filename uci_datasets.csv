@@ -1,0 +1,11 @@
+Dataset Name,Donated Date,Description,Dataset Characteristics,Subject Area,Associated Tasks,Feature Type,Instances,Features
+Iris,6/30/1988,N/A,Tabular,Biology,Classification,Real,150,4
+Dry Bean,9/13/2020,N/A,Multivariate,Biology,Classification,"Integer, Real",13611,16
+Heart Disease,6/30/1988,N/A,Multivariate,Health and Medicine,Classification,"Categorical, Integer, Real",303,13
+Rice (Cammeo and Osmancik),10/5/2019,N/A,Multivariate,Biology,Classification,Real,3810,7
+Raisin,8/13/2023,N/A,Multivariate,Biology,Classification,"Real, Integer",900,7
+Adult,4/30/1996,N/A,Multivariate,Social Science,Classification,"Categorical, Integer",48842,14
+Breast Cancer Wisconsin (Diagnostic),10/31/1995,N/A,Multivariate,Health and Medicine,Classification,Real,569,30
+Wine Quality,10/6/2009,N/A,Multivariate,Business,"Classification, Regression",Real,4898,11
+Wine,6/30/1991,N/A,Tabular,Physics and Chemistry,Classification,"Integer, Real",178,13
+Bank Marketing,2/13/2012,N/A,Multivariate,Business,Classification,"Categorical, Integer",45211,16

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "207164690636",
+    "project_id": "maxrr-8b310",
+    "storage_bucket": "maxrr-8b310.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:207164690636:android:23961e9212276e218ef269",
+        "android_client_info": {
+          "package_name": "mingo.cd"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAfS-oC7YIgUiCDoQtQoaKXY_TPsrtD5Ss"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
