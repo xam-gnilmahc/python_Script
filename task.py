@@ -59,7 +59,8 @@ def scrape_uci_datasets():
             data.append(dataset_details)
 
     page_urls = [
-        "https://archive.ics.uci.edu/datasets?skip=0&take=10& sort=desc&orderBy=NumHits&search=",
+
+        "https://archive.ics.uci.edu/datasets?skip=0&take=10&sort=desc&orderBy=NumHits&search=",
         "https://archive.ics.uci.edu/datasets?skip=10&take=20&sort=desc&orderBy=NumHits&search=",
         "https://archive.ics.uci.edu/datasets?skip=20&take=30&sort=desc&orderBy=NumHits&search="
     ]
