@@ -17,7 +17,7 @@ class TaskExporter:
         self.host = "localhost"
         self.database = "tdm"
         self.user = "root"
-        self.password = "123"
+        self.password = ""
         self.connection = None
         self.sender_email = ""
         self.sender_password = ""
@@ -282,3 +282,7 @@ task_exporter = TaskExporter()
 user_id = 1
 if not task_exporter.export_tasks_and_send_email(user_id):
     print("Failed to export tasks data and send email.")
+
+
+
+https://www.coursera.org/learn/cs-algorithms-theory-machines?allowOnboardingRedirect=true&courseSlug=cs-algorithms-theory-machines#modules
