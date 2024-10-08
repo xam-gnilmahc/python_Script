@@ -1,65 +1,91 @@
-Python IMAP and SMTP Library
-This Python library provides functionality for interacting with IMAP (Internet Message Access Protocol) and SMTP (Simple Mail Transfer Protocol) servers. It simplifies the process of sending and receiving emails programmatically.
 
-Installation
-You can install the library using pip:
+ public function index()
+    {
+        ini_set('memory_limit',-1);
+        ini_set('max_execution_time', 0);
 
-bash
-Copy code
-pip install imap-smtp-library
-Usage
-IMAP:
-Connecting to an IMAP server:
-python
-Copy code
-import imaplib
+        WorkOS::setApiKey(self::WORKOS_API_KEY);
 
-# Connect to the IMAP server
-imap_server = imaplib.IMAP4_SSL('imap.example.com')
-Logging in and accessing a mailbox:
-python
-Copy code
-# Log in to the mailbox
-imap_server.login('username', 'password')
+        $userCollection = collect();
+        $mangerIds = [];
 
-# Select a mailbox
-imap_server.select('INBOX')
-Fetching emails:
-python
-Copy code
-# Search for emails
-status, email_ids = imap_server.search(None, 'ALL')
+        try {
+            $pageAfter = null;
+            do {
 
-# Fetch email data
-for email_id in email_ids[0].split():
-    status, email_data = imap_server.fetch(email_id, '(RFC822)')
-    # Process email data
-SMTP:
-Connecting to an SMTP server:
-python
-Copy code
-import smtplib
+                list($before, $after, $usersLists) = (new DirectorySync())
+                    ->listUsers(self::WORKOS_DIRECTORY, null, 100, null, $pageAfter, 'asc');
 
-# Connect to the SMTP server
-smtp_server = smtplib.SMTP('smtp.example.com')
-Sending an email:
-python
-Copy code
-# Login to the SMTP server (if required)
-smtp_server.login('username', 'password')
+                foreach($usersLists as $users)
+                {
+                    $userss = (array) $users;
+                    $user = $userss['raw'];
 
-# Compose and send an email
-message = 'Subject: Hello\n\nThis is a test email.'
-smtp_server.sendmail('sender@example.com', 'recipient@example.com', message)
-Features
-Connect to IMAP and SMTP servers securely.
-Retrieve emails from IMAP mailboxes.
-Send emails using SMTP.
-Support for authentication and encryption.
-Contributing
-Contributions are welcome! Please fork the repository and submit a pull request.
+                    if($user['state'] == 'active')
+                    {
+                        $employeeNumber = $user['raw_attributes']['urn:ietf:params:scim:schemas:extension:enterprise:2.0:User']['employeeNumber'];
+                        $managerId = NULL;
+                        $manager = $user['raw_attributes']['urn:ietf:params:scim:schemas:extension:enterprise:2.0:User'];
 
-License
-This project is licensed under the MIT License - see the LICENSE file for details.
+                        if(array_key_exists('manager', $manager)){
 
-You can customize this README template based on the specifics of your library, such as additional features, usage examples, and installation instructions.
+                              $managerId =  $manager['manager']['value'];
+                              if (!in_array($managerId, $mangerIds)) {
+                                  array_push($mangerIds, $managerId);
+                              }
+                        }else {
+                            if (!in_array($employeeNumber, $mangerIds)) {
+                                array_push($mangerIds, $employeeNumber);
+                            }
+                        }
+
+                        $userFullName = $user['first_name'] . ' '. $user['last_name'];
+                        $userCollection->push(
+                            [
+                                'name' => $userFullName,
+                                'managerId' => $managerId,
+                                "employNumber" => $employeeNumber,
+                            ]);
+                    }
+                }
+
+                $pageAfter = $after;
+            } while ($pageAfter);
+
+            $filenameManager = 'csvManager.csv';
+            $filename = 'csvManagerClients.csv';
+
+            $pathManger = storage_path('csv/'. $filenameManager);
+            $path = storage_path('csv/'. $filename);
+
+            $fileHandleManger = fopen($pathManger, 'w');
+            $fileHandle = fopen($path, 'w');
+
+            foreach($mangerIds as $mangerId)
+            {
+                $manager = collect($userCollection->filter(function ($item) use ($mangerId) {
+                    return $item['employNumber'] == $mangerId;
+                })->all())->pluck('name');
+
+
+                if($manager->isNotEmpty())
+                {
+                    fputcsv($fileHandleManger, $manager->toArray());
+
+                    $names =  collect($userCollection->filter(function ($item) use ($mangerId) {
+                        return $item['managerId'] == $mangerId;
+                    })->all())->pluck('name')->prepend($manager[0]);
+
+                    fputcsv($fileHandle, $names->toArray());
+                }
+            }
+
+            fclose($fileHandle);
+            fclose($fileHandleManger);
+
+        }catch (\Exception $exception){
+            dd($exception);
+        }
+
+        return response()->json("Completed");
+    }
