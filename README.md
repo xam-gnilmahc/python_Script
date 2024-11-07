@@ -1,5 +1,5 @@
-     
-               1. Introduction
+                      
+               1. Introductions
                     Provide a brief overview of what your project does. For example:
                     
                     This project is a tool for sending emails via IMAP and scraping web data using both PHP and Python. It aims to simplify the process of automating email communications and gathering information from web pages.
