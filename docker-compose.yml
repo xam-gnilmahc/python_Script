@@ -1,27 +1,12 @@
-version: '3.9'
+version: '3.8'
+
 services:
-  php-env:
-    build:
-      context: .  
-      dockerfile: Dockerfile 
+  app:
+    build: .
     volumes:
-      - ./src:/var/www/html
-    ports:
-      - 9000:80
-    depends_on:
-      - mysql_db
-  mysql_db:
-    image: mysql:latest
-    command: --default-authentication-plugin=mysql_native_password
-    restart: always
+      - .:/app
     environment:
-      MYSQL_ROOT_PASSWORD: root
-  phpmyadmin:
-    image: phpmyadmin:latest
-    restart: always
-    ports:
-      - 9001:80
-    environment:
-      PMA_ARBITRARY: 1  
-    depends_on:
-      - mysql_db
+      - MYSQL_HOST=host.docker.internal  # Update with your MySQL host
+      - MYSQL_DATABASE=tdm  # Update with your MySQL database name
+      - MYSQL_USER=root  # Update with your MySQL username
+      - MYSQL_PASSWORD=123  # Update with your MySQL password
