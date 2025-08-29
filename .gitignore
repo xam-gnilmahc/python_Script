@@ -1,4 +1,4 @@
-/downloaded_images/
-/node_modules/
+downloaded_images/
+node_modules/
 PHPMailer-master/
-/vendor/
+vendor/
